@@ -57,7 +57,7 @@ void Watchy7SEG::drawDate(){
     display.println(dayOfWeek);
 
     String month = monthShortStr(currentTime.Month);
-    display.getTextBounds(month, 60, 110, &x1, &y1, &w, &h);59c7f537a2e5dab4f6c827f5f74334f4b79fb4a2
+    display.getTextBounds(month, 60, 110, &x1, &y1, &w, &h);
     display.setCursor(85 - w, 110);
     display.println(month);
 
