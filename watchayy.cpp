@@ -136,6 +136,7 @@ void Watchayy::drawNumber(int64_t num, uint8_t padding, uint16_t start_x,
     for (size_t i = 0; i < padding; i++) {
       uint16_t x = just == JUSTIFY_LEFT ? start_x : start_x - size;
       display.drawBitmap(x, y, digits[0], size, size, GxEPD_BLACK);
+      start_x += size + spacing;
     }
     return;
   }
