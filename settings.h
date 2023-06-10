@@ -1,5 +1,6 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
+
+#include <Watchy.h>
 
 // Weather Settings
 #define CITY_ID "3165524"                                                       // New York City https://openweathermap.org/current#cityid
@@ -10,7 +11,7 @@
 #define WEATHER_UPDATE_INTERVAL 30 // must be greater than 5, measured in minutes
 // NTP Settings
 #define NTP_SERVER "pool.ntp.org"
-#define GMT_OFFSET_SEC 3600 * 2 // New York is UTC -5 EST, -4 EDT, will be overwritten by weather data
+#define GMT_OFFSET_SEC 3600 * 2
 
 watchySettings settings{
     .cityID = CITY_ID,
@@ -23,5 +24,3 @@ watchySettings settings{
     .gmtOffset = GMT_OFFSET_SEC,
     .vibrateOClock = true,
 };
-
-#endif
