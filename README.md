@@ -1,1 +1,1 @@
-To toggle between Dark Mode/Light Mode, change `#define DARKMODE true` in `Watchy_7_SEG.cpp`
+- https://github.com/dezign999/pxl999
