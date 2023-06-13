@@ -44,10 +44,12 @@ void Watchayy::drawString(const char *str, uint16_t x, uint16_t y,
   case SCALE_4X:
     letters = letters_4x;
     break;
+  default:
+    return;
   }
 
   for (size_t i = 0; str[i] != '\0'; i++) {
-    char l = str[i] - 'A';
+    size_t l = str[i] - 'A';
     display.drawBitmap(x + (size + spacing) * i, y, letters[l], size, size,
                        GxEPD_BLACK);
   }
@@ -70,6 +72,8 @@ void Watchayy::drawNumber(int64_t num, uint8_t padding, uint16_t start_x,
   case SCALE_4X:
     digits = digits_4x;
     break;
+  default:
+    return;
   }
 
   if (num == 0) {

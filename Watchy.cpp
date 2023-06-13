@@ -325,9 +325,7 @@ void Watchy::showAbout() {
   display.print("LibVer: ");
   display.println(WATCHY_LIB_VER);
 
-  const char *RTC_HW[3] = {"<UNKNOWN>", "DS3231", "PCF8563"};
-  display.print("RTC: ");
-  display.println(RTC_HW[RTC.rtcType]); // 0 = UNKNOWN, 1 = DS3231, 2 = PCF8563
+  display.println("RTC: PCF8563");
 
   display.print("Batt: ");
   float voltage = getBatteryVoltage();
@@ -685,12 +683,7 @@ weatherData Watchy::getWeatherData(String cityID, String units, String lang,
 }
 
 float Watchy::getBatteryVoltage() {
-  if (RTC.rtcType == DS3231) {
-    return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f *
-           2.0f; // Battery voltage goes through a 1/2 divider.
-  } else {
-    return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f * 2.0f;
-  }
+  return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f * 2.0f;
 }
 
 uint16_t Watchy::_readRegister(uint8_t address, uint8_t reg, uint8_t *data,

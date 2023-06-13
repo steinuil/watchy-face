@@ -1,9 +1,9 @@
 #pragma once
 
-#include <TimeLib.h>
 #include "config.h"
 #include "time.h"
-#include <Rtc_Pcf8563.h>
+#include "Rtc_Pcf8563.h"
+#include <TimeLib.h>
 
 #define RTC_PCF_ADDR 0x51
 #define YEAR_OFFSET_PCF 2000
