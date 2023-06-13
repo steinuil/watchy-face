@@ -12,6 +12,5 @@ profiles:
       - Arduino_JSON (0.2.0)
       - DS3232RTC (2.0.1)
       - Rtc_Pcf8563 (1.0.3)
-      - Watchy (1.4.7)
       - Adafruit BusIO (1.14.1) # Dependency of Adafruit GFX Library
       - Time (1.6.1) # Dependency of Rtc_Pcf8563
