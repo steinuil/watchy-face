@@ -15,5 +15,3 @@ profiles:
       - Watchy (1.4.7)
       - Adafruit BusIO (1.14.1) # Dependency of Adafruit GFX Library
       - Time (1.6.1) # Dependency of Rtc_Pcf8563
-
-default_port: /dev/ttyUSB0
