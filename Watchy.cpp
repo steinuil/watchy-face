@@ -20,7 +20,6 @@ void Watchy::init(String datetime) {
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
   Wire.begin(SDA, SCL);                         // init i2c
-  RTC.init();
 
   // Init the display here for all cases, if unused, it will do nothing
   display.epd2.selectSPI(SPI, SPISettings(20000000, MSBFIRST, SPI_MODE0)); // Set SPI to 20Mhz (default is 4Mhz)
@@ -56,7 +55,7 @@ void Watchy::init(String datetime) {
     handleButtonPress();
     break;
   default: // reset
-    RTC.config(datetime);
+    // RTC.config(datetime);
     _bmaConfig();
     gmtOffset = settings.gmtOffset;
     RTC.read(currentTime);
@@ -79,7 +78,7 @@ void Watchy::deepSleep() {
   if (displayFullInit) // For some reason, seems to be enabled on first boot
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
   displayFullInit = false; // Notify not to init it again
-  RTC.clearAlarm();        // resets the alarm flag in the RTC
+  RTC.set_next_minute_alarm();
 
   // Set GPIOs 0-39 to input to avoid power leaking out
   const uint64_t ignore = 0b11110001000000110000100111000010; // Ignore some GPIOs due to resets

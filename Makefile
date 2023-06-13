@@ -3,6 +3,7 @@ SOURCES = \
 	watchy-face.ino \
 	watchayy.h watchayy.cpp \
 	settings.h \
+	pcf8563.cpp pcf8563.h \
 	DSEG7_Classic_Bold_53.h \
 	Passing_Shot_modified.h \
 	BLE.cpp BLE.h \
