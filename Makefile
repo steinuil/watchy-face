@@ -15,10 +15,11 @@ SOURCES = \
 BUILD_DIR = ./_build
 SKETCH = watchy-face
 PROFILE = watchy
+WARNINGS = all
 PORT = /dev/ttyUSB0
 
 _build/$(SKETCH).ino.elf: $(SOURCES)
-	arduino-cli compile --build-path $(BUILD_DIR) --profile $(PROFILE)
+	arduino-cli compile --build-path $(BUILD_DIR) --profile $(PROFILE) --warnings $(WARNINGS)
 
 .PHONY: monitor
 monitor:
