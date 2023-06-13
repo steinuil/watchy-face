@@ -1,4 +1,17 @@
-SOURCES = watchy-face.ino watchayy.h watchayy.cpp settings.h Passing_Shot_modified.h sketch.yaml
+SOURCES = \
+	sketch.yaml \
+	watchy-face.ino \
+	watchayy.h watchayy.cpp \
+	settings.h \
+	DSEG7_Classic_Bold_53.h \
+	Passing_Shot_modified.h \
+	BLE.cpp BLE.h \
+	Display.cpp Display.h \
+	Watchy.cpp Watchy.h \
+	WatchyRTC.cpp WatchyRTC.h \
+	bma.cpp bma.h bma4.c bma4.h bma423.c bma423.h bma4_defs.h \
+	config.h icons.h
+
 BUILD_DIR = ./_build
 SKETCH = watchy-face
 PROFILE = watchy

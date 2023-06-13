@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Watchy.h>
+#include "Watchy.h"
 
 // Weather Settings
 #define CITY_ID "3165524"                                                       // New York City https://openweathermap.org/current#cityid
