@@ -1,33 +1,34 @@
+SKETCH = watchy-face
+
 SOURCES = \
-	sketch.yaml \
-	watchy-face.ino \
-	watchayy.h watchayy.cpp \
-	settings.h \
-	pcf8563.cpp pcf8563.h \
-	DSEG7_Classic_Bold_53.h \
-	Passing_Shot_modified.h \
-	BLE.cpp BLE.h \
-	Display.cpp Display.h \
-	Watchy.cpp Watchy.h \
-	WatchyRTC.cpp WatchyRTC.h \
-	bma.cpp bma.h bma4.c bma4.h bma423.c bma423.h bma4_defs.h \
-	config.h icons.h
+	$(SKETCH)/sketch.yaml \
+	$(SKETCH)/watchy-face.ino \
+	$(SKETCH)/watchayy.h $(SKETCH)/watchayy.cpp \
+	$(SKETCH)/settings.h \
+	$(SKETCH)/pcf8563.cpp $(SKETCH)/pcf8563.h \
+	$(SKETCH)/DSEG7_Classic_Bold_53.h \
+	$(SKETCH)/Passing_Shot_modified.h \
+	$(SKETCH)/BLE.cpp $(SKETCH)/BLE.h \
+	$(SKETCH)/Display.cpp $(SKETCH)/Display.h \
+	$(SKETCH)/Watchy.cpp $(SKETCH)/Watchy.h \
+	$(SKETCH)/WatchyRTC.cpp $(SKETCH)/WatchyRTC.h \
+	$(SKETCH)/bma.cpp $(SKETCH)/bma.h $(SKETCH)/bma4.c $(SKETCH)/bma4.h $(SKETCH)/bma423.c $(SKETCH)/bma423.h $(SKETCH)/bma4_defs.h \
+	$(SKETCH)/config.h $(SKETCH)/icons.h
 
 BUILD_DIR = ./_build
-SKETCH = watchy-face
 PROFILE = watchy
 WARNINGS = all
 PORT = /dev/ttyUSB0
 
 _build/$(SKETCH).ino.elf: $(SOURCES)
-	arduino-cli compile --build-path $(BUILD_DIR) --profile $(PROFILE) --warnings $(WARNINGS)
+	arduino-cli compile --build-path $(BUILD_DIR) --profile $(PROFILE) --warnings $(WARNINGS) $(SKETCH)
 
 .PHONY: monitor
 monitor:
-	arduino-cli monitor --config baudrate=115200 --port $(PORT)
+	arduino-cli monitor --config baudrate=115200 --port $(PORT) $(SKETCH)
 
 .PHONY: upload
 upload: _build/$(SKETCH).ino.elf
-	arduino-cli upload --input-dir $(BUILD_DIR) --profile $(PROFILE) --port $(PORT)
-	arduino-cli monitor --config baudrate=115200 --port $(PORT)
+	arduino-cli upload --input-dir $(BUILD_DIR) --profile $(PROFILE) --port $(PORT) $(SKETCH)
+	arduino-cli monitor --config baudrate=115200 --port $(PORT) $(SKETCH)
 
