@@ -23,6 +23,10 @@ PORT = /dev/ttyUSB0
 _build/$(SKETCH).ino.elf: $(SOURCES)
 	arduino-cli compile --build-path $(BUILD_DIR) --profile $(PROFILE) --warnings $(WARNINGS) $(SKETCH)
 
+.PHONY: compilation-db
+compilation-db:
+	arduino-cli compile --build-path $(BUILD_DIR) --profile $(PROFILE) --warnings $(WARNINGS) $(SKETCH) --only-compilation-database
+
 .PHONY: monitor
 monitor:
 	arduino-cli monitor --config baudrate=115200 --port $(PORT) $(SKETCH)
