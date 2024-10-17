@@ -1,5 +1,4 @@
-#ifndef _BLE_H_
-#define _BLE_H_
+#pragma once
 
 #include "Arduino.h"
 
@@ -36,5 +35,3 @@ private:
   BLECharacteristic *pOtaCharacteristic           = NULL;
   BLECharacteristic *pWatchFaceNameCharacteristic = NULL;
 };
-
-#endif

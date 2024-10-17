@@ -1,17 +1,16 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 // Versioning
-#define WATCHY_LIB_VER "1.4.7"
+#define WATCHY_LIB_VER "1.4.14"
 
 //pins
-#if !defined(ARDUINO_WATCHY_V10) && !defined(ARDUINO_WATCHY_V15) && !defined(ARDUINO_WATCHY_V20)
+// #if !defined(ARDUINO_WATCHY_V10) && !defined(ARDUINO_WATCHY_V15) && !defined(ARDUINO_WATCHY_V20)
 
-#pragma message "Please install the latest ESP32 Arduino Core (2.0.5+) and choose Watchy as the target board"
-#pragma message "Hardware revision is not defined at the project level, please define in config.h. Defaulting to ARDUINO_WATCHY_V20"
+// #pragma message "Please install the latest ESP32 Arduino Core (2.0.5+) and choose Watchy as the target board"
+// #pragma message "Hardware revision is not defined at the project level, please define in config.h. Defaulting to ARDUINO_WATCHY_V20"
 
 //Change to your board version
-#define ARDUINO_WATCHY_V20
+// #define ARDUINO_WATCHY_V20
 
 #define MENU_BTN_PIN 26
 #define BACK_BTN_PIN 25
@@ -25,30 +24,37 @@
 #define VIB_MOTOR_PIN 13
 #define RTC_INT_PIN 27
 
-#if defined (ARDUINO_WATCHY_V10)
-    #define UP_BTN_PIN 32
-    #define BATT_ADC_PIN 33
-    #define UP_BTN_MASK  GPIO_SEL_32
-    #define RTC_TYPE 1 //DS3231
-#elif defined (ARDUINO_WATCHY_V15)
-    #define UP_BTN_PIN 32
-    #define BATT_ADC_PIN 35
-    #define UP_BTN_MASK  GPIO_SEL_32
-    #define RTC_TYPE 2 //PCF8563
-#elif defined (ARDUINO_WATCHY_V20)
-    #define UP_BTN_PIN 35
-    #define BATT_ADC_PIN 34
-    #define UP_BTN_MASK  GPIO_SEL_35
-    #define RTC_TYPE 2 //PCF8563
-#endif
+#undef UP_BTN_MASK
+#undef MENU_BTN_MASK
+#undef BACK_BTN_MASK
+#undef DOWN_BTN_MASK
+#undef ACC_INT_MASK
+#undef BTN_PIN_MASK
 
-#define MENU_BTN_MASK GPIO_SEL_26
-#define BACK_BTN_MASK GPIO_SEL_25
-#define DOWN_BTN_MASK GPIO_SEL_4
-#define ACC_INT_MASK  GPIO_SEL_14
+// #if defined (ARDUINO_WATCHY_V10)
+//     #define UP_BTN_PIN 32
+//     #define BATT_ADC_PIN 33
+//     #define UP_BTN_MASK  (BIT64(32))
+//     #define RTC_TYPE 1 //DS3231
+// #elif defined (ARDUINO_WATCHY_V15)
+//     #define UP_BTN_PIN 32
+//     #define BATT_ADC_PIN 35
+//     #define UP_BTN_MASK  (BIT64(32))
+//     #define RTC_TYPE 2 //PCF8563
+// #elif defined (ARDUINO_WATCHY_V20)
+#define UP_BTN_PIN 35
+#define BATT_ADC_PIN 34
+#define UP_BTN_MASK  (BIT64(35))
+#define RTC_TYPE 2
+// #endif
+
+#define MENU_BTN_MASK (BIT64(26))
+#define BACK_BTN_MASK (BIT64(25))
+#define DOWN_BTN_MASK (BIT64(4))
+#define ACC_INT_MASK  (BIT64(14))
 #define BTN_PIN_MASK  MENU_BTN_MASK|BACK_BTN_MASK|UP_BTN_MASK|DOWN_BTN_MASK
 
-#endif
+// #endif
 
 //display
 #define DISPLAY_WIDTH 200
@@ -78,4 +84,3 @@
 #define SOFTWARE_VERSION_PATCH 0
 #define HARDWARE_VERSION_MAJOR 1
 #define HARDWARE_VERSION_MINOR 0
-#endif
