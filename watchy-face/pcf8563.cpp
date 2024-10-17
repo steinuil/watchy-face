@@ -1,4 +1,5 @@
 #include "pcf8563.h"
+#include <Wire.h>
 
 static const int RTCC_R = 0xA2;
 

@@ -3,7 +3,7 @@
 // Data sheets:
 // https://www.nxp.com/docs/en/data-sheet/PCF8563.pdf
 
-#include <Wire.h>
+#include <cstdint>
 
 namespace pcf8563 {
 
@@ -85,7 +85,7 @@ public:
       : weekday(weekday), day(day), hour(hour), minute(minute) {}
 };
 
-enum Frequency {
+enum Frequency : uint8_t {
   F_32_768KHz = 0b00,
   F_1024KHz = 0b01,
   F_32Hz = 0b10,
