@@ -1,8 +1,14 @@
 #include "Watchy.h"
 
-WatchyRTC Watchy::RTC;
+#ifdef ARDUINO_ESP32S3_DEV
+  Watchy32KRTC Watchy::RTC;
+  #define ACTIVE_LOW 0
+#else
+  WatchyRTC Watchy::RTC;
+  #define ACTIVE_LOW 1
+#endif
 GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
-    WatchyDisplay(DISPLAY_CS, DISPLAY_DC, DISPLAY_RES, DISPLAY_BUSY));
+    WatchyDisplay{});
 
 RTC_DATA_ATTR int guiState;
 RTC_DATA_ATTR int menuIndex;
@@ -11,24 +17,31 @@ RTC_DATA_ATTR bool WIFI_CONFIGURED;
 RTC_DATA_ATTR bool BLE_CONFIGURED;
 RTC_DATA_ATTR weatherData currentWeather;
 RTC_DATA_ATTR int weatherIntervalCounter = -1;
-RTC_DATA_ATTR bool displayFullInit       = true;
 RTC_DATA_ATTR long gmtOffset = 0;
 RTC_DATA_ATTR bool alreadyInMenu         = true;
+RTC_DATA_ATTR bool USB_PLUGGED_IN = false;
 RTC_DATA_ATTR tmElements_t bootTime;
+RTC_DATA_ATTR uint32_t lastIPAddress;
+RTC_DATA_ATTR char lastSSID[30];
 
 void Watchy::init(String datetime) {
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
-  Wire.begin(SDA, SCL);                         // init i2c
-
-  // Init the display here for all cases, if unused, it will do nothing
-  display.epd2.selectSPI(SPI, SPISettings(20000000, MSBFIRST, SPI_MODE0)); // Set SPI to 20Mhz (default is 4Mhz)
-  display.init(0, displayFullInit, 10,
-               true); // 10ms by spec, and fast pulldown reset
-  display.epd2.setBusyCallback(displayBusyCallback);
+  #ifdef ARDUINO_ESP32S3_DEV
+    Wire.begin(WATCHY_V3_SDA, WATCHY_V3_SCL);     // init i2c
+  #else
+    Wire.begin(SDA, SCL);                         // init i2c
+  #endif
+  RTC.init();
+  // Init the display since is almost sure we will use it
+  display.epd2.initWatchy();
 
   switch (wakeup_reason) {
+  #ifdef ARDUINO_ESP32S3_DEV
+  case ESP_SLEEP_WAKEUP_TIMER: // RTC Alarm
+  #else
   case ESP_SLEEP_WAKEUP_EXT0: // RTC Alarm
+  #endif
     RTC.read(currentTime);
     switch (guiState) {
     case WATCHFACE_STATE:
@@ -54,32 +67,55 @@ void Watchy::init(String datetime) {
   case ESP_SLEEP_WAKEUP_EXT1: // button Press
     handleButtonPress();
     break;
+  #ifdef ARDUINO_ESP32S3_DEV
+  case ESP_SLEEP_WAKEUP_EXT0: // USB plug in
+    pinMode(USB_DET_PIN, INPUT);
+    USB_PLUGGED_IN = (digitalRead(USB_DET_PIN) == 1);
+    if(guiState == WATCHFACE_STATE){
+      RTC.read(currentTime);
+      showWatchFace(true);
+    }
+    break;
+  #endif
   default: // reset
-    // RTC.config(datetime);
+    RTC.config(datetime);
     _bmaConfig();
+    #ifdef ARDUINO_ESP32S3_DEV
+    pinMode(USB_DET_PIN, INPUT);
+    USB_PLUGGED_IN = (digitalRead(USB_DET_PIN) == 1);
+    #endif    
     gmtOffset = settings.gmtOffset;
     RTC.read(currentTime);
     RTC.read(bootTime);
     showWatchFace(false); // full update on reset
     vibMotor(75, 4);
+    // For some reason, seems to be enabled on first boot
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
     break;
   }
   deepSleep();
 }
-
-void Watchy::displayBusyCallback(const void *) {
-  gpio_wakeup_enable((gpio_num_t)DISPLAY_BUSY, GPIO_INTR_LOW_LEVEL);
-  esp_sleep_enable_gpio_wakeup();
-  esp_light_sleep_start();
-}
-
 void Watchy::deepSleep() {
   display.hibernate();
-  if (displayFullInit) // For some reason, seems to be enabled on first boot
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-  displayFullInit = false; // Notify not to init it again
-  RTC.set_next_minute_alarm();
+  RTC.clearAlarm();        // resets the alarm flag in the RTC
+  #ifdef ARDUINO_ESP32S3_DEV
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)USB_DET_PIN, USB_PLUGGED_IN ? LOW : HIGH); //// enable deep sleep wake on USB plug in/out
+  rtc_gpio_set_direction((gpio_num_t)USB_DET_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+  rtc_gpio_pullup_en((gpio_num_t)USB_DET_PIN);
 
+  esp_sleep_enable_ext1_wakeup(
+      BTN_PIN_MASK,
+      ESP_EXT1_WAKEUP_ANY_LOW); // enable deep sleep wake on button press
+  rtc_gpio_set_direction((gpio_num_t)UP_BTN_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+  rtc_gpio_pullup_en((gpio_num_t)UP_BTN_PIN);
+
+  rtc_clk_32k_enable(true);
+  //rtc_clk_slow_freq_set(RTC_SLOW_FREQ_32K_XTAL);
+  struct tm timeinfo;
+  getLocalTime(&timeinfo);
+  int secToNextMin = 60 - timeinfo.tm_sec;
+  esp_sleep_enable_timer_wakeup(secToNextMin * uS_TO_S_FACTOR);
+  #else
   // Set GPIOs 0-39 to input to avoid power leaking out
   const uint64_t ignore = 0b11110001000000110000100111000010; // Ignore some GPIOs due to resets
   for (int i = 0; i < GPIO_NUM_MAX; i++) {
@@ -92,6 +128,7 @@ void Watchy::deepSleep() {
   esp_sleep_enable_ext1_wakeup(
       BTN_PIN_MASK,
       ESP_EXT1_WAKEUP_ANY_HIGH); // enable deep sleep wake on button press
+  #endif
   esp_deep_sleep_start();
 }
 
@@ -182,7 +219,7 @@ void Watchy::handleButtonPress() {
     if (millis() - lastTimeout > 5000) {
       timeout = true;
     } else {
-      if (digitalRead(MENU_BTN_PIN) == 1) {
+      if (digitalRead(MENU_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
         if (guiState ==
             MAIN_MENU_STATE) { // if already in menu, then select menu item
@@ -214,7 +251,7 @@ void Watchy::handleButtonPress() {
         } else if (guiState == FW_UPDATE_STATE) {
           updateFWBegin();
         }
-      } else if (digitalRead(BACK_BTN_PIN) == 1) {
+      } else if (digitalRead(BACK_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
         if (guiState ==
             MAIN_MENU_STATE) { // exit to watch face if already in menu
@@ -226,7 +263,7 @@ void Watchy::handleButtonPress() {
         } else if (guiState == FW_UPDATE_STATE) {
           showMenu(menuIndex, false); // exit to menu if already in app
         }
-      } else if (digitalRead(UP_BTN_PIN) == 1) {
+      } else if (digitalRead(UP_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
         if (guiState == MAIN_MENU_STATE) { // increment menu index
           menuIndex--;
@@ -235,7 +272,7 @@ void Watchy::handleButtonPress() {
           }
           showFastMenu(menuIndex);
         }
-      } else if (digitalRead(DOWN_BTN_PIN) == 1) {
+      } else if (digitalRead(DOWN_BTN_PIN) == ACTIVE_LOW) {
         lastTimeout = millis();
         if (guiState == MAIN_MENU_STATE) { // decrement menu index
           menuIndex++;
@@ -324,13 +361,15 @@ void Watchy::showAbout() {
   display.print("LibVer: ");
   display.println(WATCHY_LIB_VER);
 
-  display.println("RTC: PCF8563");
+  display.print("Rev: v");
+  display.println(getBoardRevision());
 
   display.print("Batt: ");
   float voltage = getBatteryVoltage();
   display.print(voltage);
   display.println("V");
 
+  #ifndef ARDUINO_ESP32S3_DEV
   display.print("Uptime: ");
   RTC.read(currentTime);
   time_t b = makeTime(bootTime);
@@ -345,7 +384,17 @@ void Watchy::showAbout() {
   display.print(hours);
   display.print("h");
   display.print(minutes);
-  display.print("m");    
+  display.println("m");  
+  #endif
+  
+  if(WIFI_CONFIGURED){
+    display.print("SSID: ");
+    display.println(lastSSID);
+    display.print("IP: ");
+    display.println(IPAddress(lastIPAddress).toString());
+  }else{
+    display.println("WiFi Not Connected");
+  }
   display.display(false); // full refresh
 
   guiState = APP_STATE;
@@ -379,11 +428,19 @@ void Watchy::setTime() {
 
   RTC.read(currentTime);
 
+  #ifdef ARDUINO_ESP32S3_DEV
+  uint8_t minute = currentTime.Minute;
+  uint8_t hour   = currentTime.Hour;
+  uint8_t day    = currentTime.Day;
+  uint8_t month  = currentTime.Month;
+  uint8_t year   = currentTime.Year;  
+  #else
   int8_t minute = currentTime.Minute;
   int8_t hour   = currentTime.Hour;
   int8_t day    = currentTime.Day;
   int8_t month  = currentTime.Month;
   int8_t year   = tmYearToY2k(currentTime.Year);
+  #endif
 
   int8_t setIndex = SET_HOUR;
 
@@ -398,13 +455,13 @@ void Watchy::setTime() {
 
   while (1) {
 
-    if (digitalRead(MENU_BTN_PIN) == 1) {
+    if (digitalRead(MENU_BTN_PIN) == ACTIVE_LOW) {
       setIndex++;
       if (setIndex > SET_DAY) {
         break;
       }
     }
-    if (digitalRead(BACK_BTN_PIN) == 1) {
+    if (digitalRead(BACK_BTN_PIN) == ACTIVE_LOW) {
       if (setIndex != SET_HOUR) {
         setIndex--;
       }
@@ -412,7 +469,7 @@ void Watchy::setTime() {
 
     blink = 1 - blink;
 
-    if (digitalRead(DOWN_BTN_PIN) == 1) {
+    if (digitalRead(DOWN_BTN_PIN) == ACTIVE_LOW) {
       blink = 1;
       switch (setIndex) {
       case SET_HOUR:
@@ -435,7 +492,7 @@ void Watchy::setTime() {
       }
     }
 
-    if (digitalRead(UP_BTN_PIN) == 1) {
+    if (digitalRead(UP_BTN_PIN) == ACTIVE_LOW) {
       blink = 1;
       switch (setIndex) {
       case SET_HOUR:
@@ -519,7 +576,11 @@ void Watchy::setTime() {
   tmElements_t tm;
   tm.Month  = month;
   tm.Day    = day;
+  #ifdef ARDUINO_ESP32S3_DEV
+  tm.Year   = year;
+  #else
   tm.Year   = y2kYearToTm(year);
+  #endif
   tm.Hour   = hour;
   tm.Minute = minute;
   tm.Second = 0;
@@ -548,7 +609,7 @@ void Watchy::showAccelerometer() {
 
     unsigned long currentMillis = millis();
 
-    if (digitalRead(BACK_BTN_PIN) == 1) {
+    if (digitalRead(BACK_BTN_PIN) == ACTIVE_LOW) {
       break;
     }
 
@@ -603,6 +664,8 @@ void Watchy::showAccelerometer() {
 
 void Watchy::showWatchFace(bool partialRefresh) {
   display.setFullWindow();
+  // At this point it is sure we are going to update
+  display.epd2.asyncPowerOn();
   drawWatchFace();
   display.display(partialRefresh); // partial refresh
   guiState = WATCHFACE_STATE;
@@ -623,12 +686,12 @@ void Watchy::drawWatchFace() {
 }
 
 weatherData Watchy::getWeatherData() {
-  return getWeatherData(settings.cityID, settings.weatherUnit,
-                        settings.weatherLang, settings.weatherURL,
-                        settings.weatherAPIKey, settings.weatherUpdateInterval);
+  return _getWeatherData(settings.cityID, settings.lat, settings.lon,
+    settings.weatherUnit, settings.weatherLang, settings.weatherURL,
+    settings.weatherAPIKey, settings.weatherUpdateInterval);
 }
 
-weatherData Watchy::getWeatherData(String cityID, String units, String lang,
+weatherData Watchy::_getWeatherData(String cityID, String lat, String lon, String units, String lang,
                                    String url, String apiKey,
                                    uint8_t updateInterval) {
   currentWeather.isMetric = units == String("metric");
@@ -641,9 +704,16 @@ weatherData Watchy::getWeatherData(String cityID, String units, String lang,
     if (connectWiFi()) {
       HTTPClient http; // Use Weather API for live data if WiFi is connected
       http.setConnectTimeout(3000); // 3 second max timeout
-      String weatherQueryURL = url + cityID + String("&units=") + units +
-                               String("&lang=") + lang + String("&appid=") +
-                               apiKey;
+      String weatherQueryURL = url;
+      if(cityID != ""){
+        weatherQueryURL.replace("{cityID}", cityID);
+      }else{
+        weatherQueryURL.replace("{lat}", lat);
+        weatherQueryURL.replace("{lon}", lon);
+      }
+      weatherQueryURL.replace("{units}", units);
+      weatherQueryURL.replace("{lang}", lang);
+      weatherQueryURL.replace("{apiKey}", apiKey);
       http.begin(weatherQueryURL.c_str());
       int httpResponseCode = http.GET();
       if (httpResponseCode == 200) {
@@ -653,9 +723,11 @@ weatherData Watchy::getWeatherData(String cityID, String units, String lang,
         currentWeather.weatherConditionCode =
             int(responseObject["weather"][0]["id"]);
         currentWeather.weatherDescription =
-	  JSONVar::stringify(responseObject["weather"][0]["main"]);
-	    currentWeather.external = true;
-        // sync NTP during weather API call and use timezone of city
+		        JSONVar::stringify(responseObject["weather"][0]["main"]);
+	      currentWeather.external = true;
+		        breakTime((time_t)(int)responseObject["sys"]["sunrise"], currentWeather.sunrise);
+		        breakTime((time_t)(int)responseObject["sys"]["sunset"], currentWeather.sunset);
+        // sync NTP during weather API call and use timezone of lat & lon
         gmtOffset = int(responseObject["timezone"]);
         syncNTP(gmtOffset);
       } else {
@@ -682,7 +754,41 @@ weatherData Watchy::getWeatherData(String cityID, String units, String lang,
 }
 
 float Watchy::getBatteryVoltage() {
-  return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f * 2.0f;
+  #ifdef ARDUINO_ESP32S3_DEV
+    return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f * ADC_VOLTAGE_DIVIDER;
+  #else
+  if (RTC.rtcType == DS3231) {
+    return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f *
+           2.0f; // Battery voltage goes through a 1/2 divider.
+  } else {
+    return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f * 2.0f;
+  }
+  #endif
+}
+
+uint8_t Watchy::getBoardRevision() {
+  esp_chip_info_t chip_info;
+  esp_chip_info(&chip_info);
+  if(chip_info.model == CHIP_ESP32){ //Revision 1.0 - 2.0
+    Wire.beginTransmission(0x68); //v1.0 has DS3231
+    if (Wire.endTransmission() == 0){
+      return 10;
+    }
+    delay(1);
+    Wire.beginTransmission(0x51); //v1.5 and v2.0 have PCF8563
+    if (Wire.endTransmission() == 0){
+        pinMode(35, INPUT);
+        if(digitalRead(35) == 0){
+          return 20; //in rev 2.0, pin 35 is BTN 3 and has a pulldown
+        }else{
+          return 15; //in rev 1.5, pin 35 is the battery ADC
+        }
+    }
+  }
+  if(chip_info.model == CHIP_ESP32S3){ //Revision 3.0
+    return 30;
+  }
+  return -1;
 }
 
 uint16_t Watchy::_readRegister(uint8_t address, uint8_t reg, uint8_t *data,
@@ -816,18 +922,20 @@ void Watchy::setupWifi() {
     display.println("Setup failed &");
     display.println("timed out!");
   } else {
-    display.println("Connected to");
+    display.println("Connected to:");
     display.println(WiFi.SSID());
 		display.println("Local IP:");
 		display.println(WiFi.localIP());
     weatherIntervalCounter = -1; // Reset to force weather to be read again
+    lastIPAddress = WiFi.localIP();
+    WiFi.SSID().toCharArray(lastSSID, 30);
   }
   display.display(false); // full refresh
   // turn off radios
   WiFi.mode(WIFI_OFF);
   btStop();
-  display.epd2.setBusyCallback(displayBusyCallback); // enable lightsleep on
-                                                     // busy
+  // enable lightsleep on busy
+  display.epd2.setBusyCallback(WatchyDisplay::busyCallback);
   guiState = APP_STATE;
 }
 
@@ -855,6 +963,8 @@ bool Watchy::connectWiFi() {
   } else {
     if (WL_CONNECTED ==
         WiFi.waitForConnectResult()) { // attempt to connect for 10s
+      lastIPAddress = WiFi.localIP();
+      WiFi.SSID().toCharArray(lastSSID, 30);
       WIFI_CONFIGURED = true;
     } else { // connection failed, time out
       WIFI_CONFIGURED = false;
